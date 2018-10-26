@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.InetAddress;
+import java.util.Arrays;
 import java.util.Scanner;
 
 public class PingUtility {
@@ -8,17 +9,18 @@ public class PingUtility {
 	private final long msDelay = 1000;
 	private final int timeOutTime = 2000;
 	private final String fileName = "PingUtilResults.txt";
-	private final boolean showRuns = true;
+	private final boolean showRuns;
 
-	private int trials;
-	private int runs;
+	private final int trials;
+	private final int runs;
 	private long [] timeArray;
 
 	private BufferedWriter writer;
 
-	public PingUtility(int trials, int runs){
+	public PingUtility(int trials, int runs, boolean showRuns){
 		this.trials = trials;
 		this.runs = runs;
+		this.showRuns = showRuns;
 
 		System.out.println("Starting ping test to " + ipAddress);
 		System.out.println("Test will have " + trials + " trial(s) with " + runs + " run(s).");
@@ -33,6 +35,7 @@ public class PingUtility {
 			return;
 		}
 		writer = new BufferedWriter(directory);
+		strToFile("Starting ping test to " + ipAddress + "\n");
 		strToFile("This test consists of " + trials + " trial(s) and " + runs + " run(s). \n\n");
 
 		//ping server and get times
@@ -68,6 +71,7 @@ public class PingUtility {
 				} else {
 					pingTime = 0;
 					droppedPackets += 1;
+					times[currRun] = timeOutTime;
 				}
 			} catch (Exception e) {
 				System.out.println("Exception " + e.getMessage());
@@ -100,14 +104,23 @@ public class PingUtility {
 		//calculate the average and append run times
 		for(int n = 0; n < numbers.length; n += 1){
 			sum += numbers[n];
+
 			if(showRuns) {
 				outString.append("Ping RTT " + numbers[n] + "ms\n");
 			}
 		}
 		average = sum/numbers.length;
 
-		outString.append("AVERAGE: " + average + "ms\tDROPPED PACKETS: " + dropped + "\n\n");
-
+		//sort array for number summary
+		Arrays.sort(numbers);
+		//calculate number summary
+		outString.append("AVERAGE: " + average + "ms\tDROPPED PACKETS: " + dropped + "\n");
+		//five number summary of run data
+		outString.append("MIN: " + numbers[0] + "\tMAX: " + numbers[numbers.length-1] + "\n");
+		outString.append("QUARTILE 1: " + numbers[Math.floorDiv(numbers.length, 4)]);
+		outString.append("\tMEDIAN: " + numbers[Math.floorDiv(numbers.length, 2)]);
+		outString.append("\tQUARTILE 3: " + numbers[3 * Math.floorDiv(numbers.length, 4)] + "\n\n");
+		//write report to file
 		strToFile(outString.toString());
 	}
 
@@ -122,6 +135,7 @@ public class PingUtility {
 	public static void main(String[] args){
 		int trials = 0;
 		int runs = 0;
+		boolean showRuns = false;
 
 		Scanner input = new Scanner(System.in);
 
@@ -147,7 +161,13 @@ public class PingUtility {
 			runs = input.nextInt();
 		} while (runs < 1);
 
-		PingUtility pingTest = new PingUtility(trials, runs);
+		System.out.println("Show the run times (y or n)");
+		String runOptionInput = input.next().toLowerCase();
+		if(runOptionInput.equals("y") || runOptionInput.equals("yes")){
+			showRuns = true;
+		}
+
+		PingUtility pingTest = new PingUtility(trials, runs, showRuns);
 	}
 }
 
