@@ -8,8 +8,8 @@ public class PingUtility {
 
 	private final long msDelay = 1000;
 	private final int timeOutTime = 2000;
-	private final String fileName = "PingUtilResults.txt";
-	private final boolean showRuns;
+	private final String summaryFileName = "PingSummary.txt";
+	private final String reportDirectory = "reports";
 
 	private final int trials;
 	private final int runs;
@@ -17,26 +17,21 @@ public class PingUtility {
 
 	private BufferedWriter writer;
 
-	public PingUtility(int trials, int runs, boolean showRuns){
+	public PingUtility(int trials, int runs){
 		this.trials = trials;
 		this.runs = runs;
-		this.showRuns = showRuns;
 
 		System.out.println("Starting ping test to " + ipAddress);
 		System.out.println("Test will have " + trials + " trial(s) with " + runs + " run(s).");
 
 		//open file for writing results
-		FileWriter directory;
-		try {
-			//open file with fileName in current directory
-			directory = new FileWriter(System.getProperty("user.dir") + "\\" + fileName);
-		} catch (IOException e) {
-			e.printStackTrace();
-			return;
+		writer = getWriteFile(summaryFileName);
+		if(writer == null){
+			throw new Error("Error opening write file " + summaryFileName);
 		}
-		writer = new BufferedWriter(directory);
-		strToFile("Starting ping test to " + ipAddress + "\n");
-		strToFile("This test consists of " + trials + " trial(s) and " + runs + " run(s). \n\n");
+
+		strToFile("Starting ping test to " + ipAddress + "\n", writer);
+		strToFile("This test consists of " + trials + " trial(s) and " + runs + " run(s). \n\n", writer);
 
 		//ping server and get times
 		timeArray = new long[runs];
@@ -71,6 +66,7 @@ public class PingUtility {
 				} else {
 					pingTime = 0;
 					droppedPackets += 1;
+					//set time result to max time
 					times[currRun] = timeOutTime;
 				}
 			} catch (Exception e) {
@@ -97,20 +93,19 @@ public class PingUtility {
 	public void appendReport(int dropped, long[] numbers, int trialNum){
 		long average;
 		long sum = 0;
+		BufferedWriter currTrialWriter = getWriteFile(reportDirectory + File.separator + "trial" + trialNum);
 
-		StringBuilder outString = new StringBuilder();
-		outString.append("RESULTS FOR TRIAL: " + trialNum + "\n");
+		StringBuilder runString = new StringBuilder();
 
 		//calculate the average and append run times
 		for(int n = 0; n < numbers.length; n += 1){
 			sum += numbers[n];
-
-			if(showRuns) {
-				outString.append("Ping RTT " + numbers[n] + "ms\n");
-			}
+			runString.append("Ping RTT " + numbers[n] + "ms\n");
 		}
 		average = sum/numbers.length;
 
+		StringBuilder outString = new StringBuilder();
+		outString.append("RESULTS FOR TRIAL: " + trialNum + "\n");
 		//sort array for number summary
 		Arrays.sort(numbers);
 		//calculate number summary
@@ -120,16 +115,41 @@ public class PingUtility {
 		outString.append("QUARTILE 1: " + numbers[Math.floorDiv(numbers.length, 4)]);
 		outString.append("\tMEDIAN: " + numbers[Math.floorDiv(numbers.length, 2)]);
 		outString.append("\tQUARTILE 3: " + numbers[3 * Math.floorDiv(numbers.length, 4)] + "\n\n");
-		//write report to file
-		strToFile(outString.toString());
-	}
+		//write summary to file
+		strToFile(outString.toString(), writer);
 
-	public void strToFile(String text){
+
+		//append the runs to the summary
+		outString.append(runString);
+		//write trial file
+		strToFile(outString.toString(), currTrialWriter);
+		//close trial file
 		try {
-			writer.write(text);
+			currTrialWriter.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
+	}
+
+	public void strToFile(String text, BufferedWriter fileToWrite){
+		try {
+			fileToWrite.write(text);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public BufferedWriter getWriteFile(String name){
+		FileWriter directory;
+		try {
+			//open file with fileName in current directory
+			directory = new FileWriter(System.getProperty("user.dir") + File.separator + name);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		}
+		return new BufferedWriter(directory);
 	}
 
 	public static void main(String[] args){
@@ -161,13 +181,8 @@ public class PingUtility {
 			runs = input.nextInt();
 		} while (runs < 1);
 
-		System.out.println("Show the run times (y or n)");
-		String runOptionInput = input.next().toLowerCase();
-		if(runOptionInput.equals("y") || runOptionInput.equals("yes")){
-			showRuns = true;
-		}
 
-		PingUtility pingTest = new PingUtility(trials, runs, showRuns);
+		PingUtility pingTest = new PingUtility(trials, runs);
 	}
 }
 
